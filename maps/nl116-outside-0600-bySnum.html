@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Rams from outside the window</title>
+<title>Rams from outside the Sunday 06:00 window, by S#</title>
 <style>
 :root{--bg:#f6f5f2;--panel:#fcfcfb;--ink:#0b0b0b;--ink2:#52514e;--mut:#898781;--line:rgba(11,11,11,.1);--grid:#e1e0d9;--grid2:#c3c2b7;--barb:#d3d1c7;--none:#888780;--other:#b4b2a9}
 @media (prefers-color-scheme:dark){:root{--bg:#0f0f0f;--panel:#151515;--ink:#f0efec;--ink2:#c3c2b7;--mut:#898781;--line:rgba(255,255,255,.1);--grid:#232321;--grid2:#383835;--barb:#3a3a37;--none:#6b6a65;--other:#55544f}}
@@ -149,6 +149,41 @@ document.getElementById('q').addEventListener('input',e=>{const q=e.target.value
   hiP=i;const vs=D.villages.filter(v=>v[2]===i);m.textContent=vs.length+' villages';if(vs.length){let a=1e9,b=1e9,c=-1e9,d=-1e9;vs.forEach(v=>{a=Math.min(a,v[0]);b=Math.min(b,v[1]);c=Math.max(c,v[0]);d=Math.max(d,v[1])});fitBox(a-8,b-8,c+9,d+9)}else draw()});
 init();
 setInterval(()=>draw(),60000);
+</script>
+<script>
+(function(){
+  const hdr=document.querySelector('header');if(!hdr)return;
+  const btn=document.createElement('button');btn.className='b';btn.textContent='Coordinates';btn.title='List source and target coordinates of the rams on the map';hdr.appendChild(btn);
+  const box=document.createElement('div');box.id='coordpanel';
+  box.style.cssText='display:none;border-bottom:.5px solid var(--line);background:var(--panel);padding:8px 14px 10px;font-size:13px;color:var(--ink2)';
+  box.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:6px"><span id="cpsum"></span><label>Separator <select id="cpsep" style="font:inherit;font-size:13px;padding:2px 6px;border:.5px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)"><option value=" ">space</option><option value="\\n">new line</option><option value=", ">comma</option></select></label><label><input type="checkbox" id="cpdup"> keep duplicates</label><button class="b" id="cpclose" style="margin-left:auto">Close</button></div>'+
+  '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px">'+
+  ['src:Sources','tgt:Targets','ram:Rams (source → target, arrival)'].map(s=>{const[k,l]=s.split(':');return `<div><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><b style="font-weight:500;color:var(--ink)">${l}</b> <span class="n" id="cpn_${k}"></span><button class="b" data-copy="${k}" style="padding:2px 8px;margin-left:auto">Copy</button></div><textarea id="cp_${k}" readonly style="width:100%;height:120px;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;border:.5px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);padding:6px;resize:vertical"></textarea></div>`}).join('')+'</div>';
+  const wrap=document.getElementById('wrap');wrap.parentNode.insertBefore(box,wrap);
+  let open=false,sig='';
+  const owner=(x,y)=>{try{const v=byXY.get(x*1000+y);return v&&D.players[v[2]]?D.players[v[2]][0]:(v?'barbarian':'')}catch(e){return''}};
+  const vname=(x,y)=>{try{const v=byXY.get(x*1000+y);return v?v[4]:''}catch(e){return''}};
+  function visible(){try{if(typeof aVis==='function')return D.attacks.filter((a,i)=>aVis(a,i))}catch(e){}try{return showAtt?D.attacks:[]}catch(e){return D.attacks||[]}}
+  function fill(force){
+    const vis=visible();const sep=document.getElementById('cpsep').value.replace('\\n','\n');const dup=document.getElementById('cpdup').checked;
+    const k=vis.length+'|'+sep+'|'+dup+'|'+(vis[0]?vis[0].slice(0,6).join():'')+'|'+(vis.length?vis[vis.length-1].slice(0,6).join():'');
+    if(!force&&k===sig)return;sig=k;
+    const sc=new Map(),tc=new Map();vis.forEach(a=>{const s=a[0]+'|'+a[1],t=a[2]+'|'+a[3];sc.set(s,(sc.get(s)||0)+1);tc.set(t,(tc.get(t)||0)+1)});
+    const list=(m,key)=>dup?vis.map(key):[...m.keys()];
+    const src=list(sc,a=>a[0]+'|'+a[1]),tgt=list(tc,a=>a[2]+'|'+a[3]);
+    document.getElementById('cp_src').value=src.join(sep);document.getElementById('cp_tgt').value=tgt.join(sep);
+    document.getElementById('cp_ram').value=vis.slice().sort((a,b)=>a[5]<b[5]?-1:1).map(a=>`${a[0]}|${a[1]} → ${a[2]}|${a[3]}  ${a[5]}  ${String(a[4]).replace(/^→ /,'')} → ${owner(a[2],a[3])} (${vname(a[2],a[3])})`).join('\n');
+    document.getElementById('cpn_src').textContent=sc.size+' villages';document.getElementById('cpn_tgt').textContent=tc.size+' villages';document.getElementById('cpn_ram').textContent=vis.length+' rams';
+    document.getElementById('cpsum').textContent='Lists follow the filters on the map (players, S#, time slider, clicked village).';
+  }
+  btn.onclick=()=>{open=!open;box.style.display=open?'block':'none';if(open)fill(true);try{resize()}catch(e){}};
+  document.getElementById('cpclose').onclick=()=>{open=false;box.style.display='none';try{resize()}catch(e){}};
+  document.getElementById('cpsep').onchange=()=>fill(true);document.getElementById('cpdup').onchange=()=>fill(true);
+  box.addEventListener('click',e=>{const k=e.target.dataset&&e.target.dataset.copy;if(!k)return;const ta=document.getElementById('cp_'+k);const done=()=>{e.target.textContent='Copied';setTimeout(()=>e.target.textContent='Copy',1200)};
+    try{navigator.clipboard.writeText(ta.value).then(done,()=>{ta.select();document.execCommand('copy');done()})}catch(err){ta.select();try{document.execCommand('copy');done()}catch(e2){}}});
+  if(typeof draw==='function'){const _d=draw;draw=function(){_d.apply(this,arguments);if(open)fill()}}
+})();
+
 </script>
 </body>
 </html>
